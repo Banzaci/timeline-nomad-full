@@ -3,15 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import authenticate from '../middlewares/auth.js';
 import UserCoordinates from '../models/user-coordinates.js';
-import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
+import Tags from '../models/tags.js';
 import sharp from 'sharp';
 
 const router = express.Router();
 const directory = './uploads';
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 
 const storage = multer.diskStorage({
   limits: {
@@ -45,7 +43,7 @@ router.get('/profile', authenticate, async (req, res) => {
     const userCoordinate = await UserCoordinates.findOne({ userId: req.user.id, endDate: null })
     res.json({ ...req.user, ...{ coordinates: userCoordinate.coordinates } });
   } else {
-    res.json({ error: 'User doesnot exist', error: true, success: false });
+    res.json({ error: 'User does not exist', error: true, success: false });
   }
 });
 
@@ -58,9 +56,9 @@ router.post('/map', authenticate, async (req, res) => {
     await UserCoordinates.findOneAndUpdate(
       { userId: req.user.id, endDate: null }, { endDate: todayDate }
     )
-    const userCoordinates = new UserCoordinates({ userId: req.user.id, coordinates: [lng, lat], startDate: addStartDate, endDate, createdDate: formatDate(new Date()) });
+    const userCoordinates = new UserCoordinates({ userId: req.user.id, coordinates: [lng, lat], startDate: addStartDate, endDate });
     await userCoordinates.save();
-    res.json({ message: 'User country added', error: false, success: true });
+    res.json({ message: 'User position is added', error: false, success: true });
   } catch (error) {
     res.json({ error, error: true, success: false });
   }
@@ -84,7 +82,6 @@ router.post('/upload-image', authenticate, upload.single('file'), async (req, re
     await User.findByIdAndUpdate(req.user.id, { avatar: file })
     sharp(req.file.path)
       .resize(250, 250).toFile(file, async (error, resizeImage) => {
-        console.log(resizeImage)
         if (error) {
           res.json({ error, error: true, success: false });
         } else {
@@ -96,6 +93,45 @@ router.post('/upload-image', authenticate, upload.single('file'), async (req, re
           res.json({ message: 'User profile image added', error: false, success: true, avatar: `${req.file.path}` });
         }
       });
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
+
+router.post('/tag', authenticate, async (req, res) => {
+  const { tag } = req.body
+  try {
+    const exist = await Tags.exists({ userId: req.user.id, tagName: tag })
+    if (exist) {
+      res.json({ message: 'Tag already exist', error: true, success: false });
+    } else {
+      const userTag = new Tags({ userId: req.user.id, tagName: tag });
+      await userTag.save();
+      res.json({ message: 'Tag added', error: false, success: true, tagName: tag });
+    }
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
+
+router.get('/tag', authenticate, async (req, res) => {
+  try {
+    const tags = await Tags.find({ userId: req.user.id }, 'id, tagName')
+    res.json({ error: false, success: true, tagNames: tags });
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
+
+router.delete('/tag/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const response = await Tags.deleteOne({ _id: id, userId: req.user.id });
+    if (response.acknowledged) {
+      res.json({ error: false, success: true });
+    } else {
+      res.json({ error: true, success: false, error: 'Could not delete tag' });
+    }
   } catch (error) {
     res.json({ error, error: true, success: false });
   }

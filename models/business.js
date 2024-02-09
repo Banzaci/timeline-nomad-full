@@ -27,7 +27,7 @@ const BusinessSchema = new mongoose.Schema({
   },
   createdDate: {
     type: Date,
-    required: true,
+    default: new Date()
   },
   status: {
     type: String,

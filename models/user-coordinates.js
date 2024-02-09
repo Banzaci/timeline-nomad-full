@@ -20,6 +20,7 @@ const UserCoordinatesSchema = new Schema({
   },
   createdDate: {
     type: Date,
+    default: new Date()
   },
 });
 

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+const Schema = mongoose.Schema;
+
 const TagSchema = new mongoose.Schema({
   tagName: {
     type: String,
@@ -16,6 +18,7 @@ const TagSchema = new mongoose.Schema({
   createdDate: {
     type: Date,
     required: true,
+    default: new Date()
   },
 });
 
