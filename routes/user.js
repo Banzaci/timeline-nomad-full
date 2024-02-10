@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import authenticate from '../middlewares/auth.js';
 import UserCoordinates from '../models/user-coordinates.js';
+import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
@@ -40,10 +41,33 @@ const upload = multer({ storage });
 
 router.get('/profile', authenticate, async (req, res) => {
   if (req.user.id) {
-    const userCoordinate = await UserCoordinates.findOne({ userId: req.user.id, endDate: null })
-    res.json({ ...req.user, ...{ coordinates: userCoordinate.coordinates } });
+    const userCoordinate = await UserCoordinates.findOne({ userId: req.user.id, endDate: null });
+    if (userCoordinate) {
+      res.json({ ...req.user, ...{ coordinates: userCoordinate.coordinates } });
+    } else {
+      res.json({ ...req.user, ...{ coordinates: [] } });
+    }
   } else {
     res.json({ error: 'User does not exist', error: true, success: false });
+  }
+});
+
+router.patch('/profile', authenticate, async (req, res) => {
+  const { gender, country, city, dateOfBirth } = req.body
+  try {
+    if (req.user.id) {
+      const user = await User.findOneAndUpdate(
+        { _id: req.user.id }, { gender, country, city, dateOfBirth: new Date(dateOfBirth), lastUpdated: new Date() }
+      )
+      if (user) {
+        const { fullname, gender, dateOfBirth, city, country } = user;
+        res.json({ message: 'User profile updated', error: false, success: true, user: { fullname, gender, dateOfBirth, city, country } });
+      }
+    } else {
+      res.json({ error: 'User does not exist', error: true, success: false });
+    }
+  } catch (error) {
+
   }
 });
 
@@ -107,7 +131,7 @@ router.post('/tag', authenticate, async (req, res) => {
     } else {
       const userTag = new Tags({ userId: req.user.id, tagName: tag });
       await userTag.save();
-      res.json({ message: 'Tag added', error: false, success: true, tagName: tag });
+      res.json({ message: 'Tag added', error: false, success: true, userTag: { _id: userTag._id, tagName: userTag.tagName } });
     }
   } catch (error) {
     res.json({ error, error: true, success: false });
@@ -136,5 +160,21 @@ router.delete('/tag/:id', authenticate, async (req, res) => {
     res.json({ error, error: true, success: false });
   }
 });
+
+router.delete('/profile/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (req.user.role === 'admin') {
+      const user = await User.findById(id, 'email, avatar');
+      fs.unlinkSync(user.avatar); // remove folder
+      await User.deleteOne({ _id: id });
+      await Tags.deleteMany({ userId: id });
+      res.json({ error: false, success: true });
+    }
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
+
 
 export default router;

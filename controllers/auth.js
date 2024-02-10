@@ -3,17 +3,25 @@ import bcrypt from 'bcrypt';
 import User from '../models/user.js';
 
 export const register = async (req, res, next) => {
-  const { fullname, dateOfBirth, gender, country, city, email, password } = req.body;
+  const { fullName, password, email } = req.body;
+  console.log(fullName, password, email)
   try {
     const findUser = await User.findOne({ email });
     if (findUser) {
       return res.status(401).json({ message: 'A user with this email already exist' });
     }
+    if (!password) {
+      return res.status(401).json({ message: 'Enter a password' });
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ fullname, dateOfBirth, gender, country, city, email, password: hashedPassword });
+    const user = new User({ fullname: fullName, email, password: hashedPassword });
     await user.save();
-    res.json({ message: 'Registration successful' });
+    const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
+      expiresIn: '48 hour'
+    });
+    res.json(token);
   } catch (error) {
+    console.log(error)
     next(error);
   }
 };

@@ -9,7 +9,6 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    maxlength: 60,
   },
   email: {
     type: String,
@@ -35,6 +34,9 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: new Date()
   },
+  lastUpdated: {
+    type: Date,
+  },
   status: {
     type: String,
     enum: ['pending', 'active', 'deleted', 'banned'],
@@ -42,8 +44,8 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'paid'],
-    default: 'user'
+    enum: ['user', 'admin', 'paid', 'test'],
+    default: 'test' // måste ändras
   }
 });
 
@@ -52,6 +54,6 @@ UserSchema.methods.comparePassword = async function (password) {
   return matching
 };
 
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.model('users', UserSchema);
 
 export default User;

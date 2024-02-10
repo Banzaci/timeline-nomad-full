@@ -16,7 +16,7 @@ export default async function (req, res, next) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const { fullname, gender, email, country, city, status, role, avatar } = user;
+    const { fullname, gender, email, country, city, status, role, avatar, dateOfBirth } = user;
 
     req.user = {
       id: user.id,
@@ -27,7 +27,8 @@ export default async function (req, res, next) {
       city,
       status,
       role,
-      avatar
+      avatar,
+      dateOfBirth
     };
 
     next();
