@@ -8,6 +8,7 @@ import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
 import sharp from 'sharp';
+import Friends from '../models/friends.js';
 
 const router = express.Router();
 const directory = './uploads';
@@ -100,10 +101,9 @@ router.post('/map/get', authenticate, async (req, res) => {
       $match: {
         'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
         'endDate': null,
-        // '_id': 
+        // '_id': not this user
       }
     },
-    // { $unwind: '$users' },
     {
       $lookup: {
         from: 'users',
@@ -204,5 +204,15 @@ router.delete('/profile/:id', authenticate, async (req, res) => {
   }
 });
 
+router.post('/friend-request', authenticate, async (req, res) => {
+  const { senderId, receiverId } = req.body
+  try {
+    const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
+    await friendRequest.save();
+    res.json({ message: 'User position is added', error: false, success: true });
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
 
 export default router;
