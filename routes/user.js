@@ -95,8 +95,36 @@ router.post('/map/get', authenticate, async (req, res) => {
   const lng1 = _northEast.lng;
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
-
-  const userCoordinatess = await UserCoordinates.find({ 'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } } });
+  const userCoordinatess = await UserCoordinates.aggregate([
+    {
+      $match: {
+        'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
+        'endDate': null,
+        // '_id': 
+      }
+    },
+    // { $unwind: '$users' },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'users'
+      },
+    },
+    { $project: { _id: 1, userId: 1, coordinates: 1, startDate: 1, users: { avatar: 1, fullname: 1, city: 1, _id: 1 }, } },
+    {
+      $group: {
+        "_id": "$_id",
+        "coordinates": { "$first": "$coordinates" },
+        "userId": { "$first": "$userId" },
+        "fullname": { "$first": "$users.fullname" },
+        "city": { "$first": "$users.city" },
+        "country": { "$first": "$users.country" },
+        "avatar": { "$first": "$users.avatar" },
+      }
+    },
+  ]);
   res.json(userCoordinatess);
 });
 

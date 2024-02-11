@@ -1,25 +1,34 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import User from '../models/user.js';
+import axios from 'axios';
 
 export const register = async (req, res, next) => {
-  const { fullName, password, email } = req.body;
-  console.log(fullName, password, email)
+  const { fullname, password, email, token } = req.body;
   try {
-    const findUser = await User.findOne({ email });
-    if (findUser) {
-      return res.status(401).json({ message: 'A user with this email already exist' });
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_PRIVATE_KEY}&response=${token}`
+    );
+    if (response.data.success) {
+      const findUser = await User.findOne({ email });
+      if (findUser) {
+        return res.status(401).json({ message: 'A user with this email already exist' });
+      }
+      if (!password) {
+        return res.status(401).json({ message: 'Enter a password' });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = new User({ fullname, email, password: hashedPassword });
+      await user.save();
+
+      const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
+        expiresIn: '48 hour'
+      });
+
+      res.json(token);
+    } else {
+      res.send("Robot 🤖");
     }
-    if (!password) {
-      return res.status(401).json({ message: 'Enter a password' });
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ fullname: fullName, email, password: hashedPassword });
-    await user.save();
-    const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
-      expiresIn: '48 hour'
-    });
-    res.json(token);
   } catch (error) {
     console.log(error)
     next(error);
