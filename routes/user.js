@@ -10,6 +10,8 @@ import Tags from '../models/tags.js';
 import sharp from 'sharp';
 import Friends from '../models/friends.js';
 
+
+
 const router = express.Router();
 const directory = './uploads';
 
@@ -40,6 +42,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+export const saveProfileData = ({ fullname, gender, country, city, dateOfBirth }) => {
+  const dataToBeSaved = {
+    lastUpdated: new Date(),
+    ...{ ...(typeof fullname === "string" && { fullname }) },
+    ...{ ...(typeof city === "string" && { city }) },
+    ...{ ...(typeof country === "string" && { country }) },
+    ...{ ...(dateOfBirth instanceof Date && { dateOfBirth: new Date(dateOfBirth) }) },
+    ...{ ...((gender === 'Male' || gender === 'Female' || gender === 'Prefer not to say') && { gender }) }
+  }
+  return dataToBeSaved;
+}
+
 router.get('/profile', authenticate, async (req, res) => {
   if (req.user.id) {
     const userCoordinate = await UserCoordinates.findOne({ userId: req.user.id, endDate: null });
@@ -54,11 +68,11 @@ router.get('/profile', authenticate, async (req, res) => {
 });
 
 router.patch('/profile', authenticate, async (req, res) => {
-  const { gender, country, city, dateOfBirth } = req.body
   try {
     if (req.user.id) {
+      const dataToBeSaved = saveProfileData(req.body);
       const user = await User.findOneAndUpdate(
-        { _id: req.user.id }, { gender, country, city, dateOfBirth: new Date(dateOfBirth), lastUpdated: new Date() }
+        { _id: req.user.id }, dataToBeSaved
       )
       if (user) {
         const { fullname, gender, dateOfBirth, city, country } = user;
@@ -68,7 +82,8 @@ router.patch('/profile', authenticate, async (req, res) => {
       res.json({ error: 'User does not exist', error: true, success: false });
     }
   } catch (error) {
-
+    console.log(error)
+    res.json({ error, error: true, success: false });
   }
 });
 
@@ -98,19 +113,19 @@ router.post('/map/get', authenticate, async (req, res) => {
   const lng2 = _southWest.lng;
   const userCoordinatess = await UserCoordinates.aggregate([
     {
-      $match: {
-        'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
-        'endDate': null,
-        // '_id': not this user
-      }
-    },
-    {
       $lookup: {
         from: 'users',
         localField: 'userId',
         foreignField: '_id',
         as: 'users'
       },
+    },
+    {
+      $match: {
+        'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
+        'endDate': null,
+        'fullname': { $ne: "Jan Jansson" }
+      }
     },
     { $project: { _id: 1, userId: 1, coordinates: 1, startDate: 1, users: { avatar: 1, fullname: 1, city: 1, _id: 1 }, } },
     {
@@ -199,17 +214,6 @@ router.delete('/profile/:id', authenticate, async (req, res) => {
       await Tags.deleteMany({ userId: id });
       res.json({ error: false, success: true });
     }
-  } catch (error) {
-    res.json({ error, error: true, success: false });
-  }
-});
-
-router.post('/friend-request', authenticate, async (req, res) => {
-  const { senderId, receiverId } = req.body
-  try {
-    const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
-    await friendRequest.save();
-    res.json({ message: 'User position is added', error: false, success: true });
   } catch (error) {
     res.json({ error, error: true, success: false });
   }

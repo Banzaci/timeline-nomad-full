@@ -23,8 +23,8 @@ const FriendsSchema = new mongoose.Schema({
     required: true,
   },
   status: {
-    type: 'pending' | 'accepted' | 'rejected' | 'blocked',
-    required: true,
+    type: String,
+    enum: ['pending', 'accepted', 'rejected', 'blocked'],
     default: 'pending'
   },
 });

@@ -3,6 +3,9 @@ import bcrypt from 'bcrypt';
 import User from '../models/user.js';
 import axios from 'axios';
 
+const emailRegex = new RegExp(/^[A-Za-z0-9_!#$%&'*+\/=?`{|}~^.-]+@[A-Za-z0-9.-]+$/, "gm");
+const checkIfValidEmail = (email) => emailRegex.test(email);
+
 export const register = async (req, res, next) => {
   const { fullname, password, email, token } = req.body;
   try {
@@ -17,8 +20,13 @@ export const register = async (req, res, next) => {
       if (!password) {
         return res.status(401).json({ message: 'Enter a password' });
       }
+      if (!checkIfValidEmail(email)) {
+        return res.status(401).json({ message: 'Un valid email' });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = new User({ fullname, email, password: hashedPassword });
+
       await user.save();
 
       const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {

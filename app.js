@@ -1,15 +1,55 @@
 import express from 'express';
 import cors from 'cors';
-import { Client } from '@elastic/elasticsearch';
+// import { Client } from '@elastic/elasticsearch';
+// import esRoutes from './routes/es.js';
 import bodyParser from 'body-parser';
 import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
-// import esRoutes from './routes/es.js';
 import businessRoutes from './routes/business.js';
+import { Server } from "socket.io";
+import http from 'http';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(cors())
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:3001',
+    methods: ['GET', 'POST'],
+  }
+});
+
+io.on('connection', (socket) => {
+  // console.log('A user connected', socket.id);
+  // socket.on("friend-request", async (data) => {
+  //   console.log('data::', data)
+  //   const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
+  //   await friendRequest.save();
+  // });
+  // socket.emit("friend-request", { type: '' });
+});
+
+io.on("connection_error", (err) => {
+  // the reason of the error, for example "xhr poll error"
+  console.log(err.message);
+
+  // some additional description, for example the status code of the initial HTTP response
+  console.log(err.description);
+
+  // some additional context, for example the XMLHttpRequest object
+  console.log(err.context);
+});
+
+app.listen(PORT, () => {
+  // server.listen(PORT)
+  console.log('Connected to server')
+})
+
 
 // const esclient = new Client({
 //   node: 'https://localhost:9200/',
@@ -37,7 +77,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors())
+
 
 app.use('/uploads', express.static('uploads'));
 
@@ -46,6 +86,7 @@ connectDB();
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
 app.use('/business', businessRoutes);
+
 // app.get('/health', esRoutes);
 
 // app.get('/index', async (req, res) => {
@@ -78,7 +119,7 @@ app.use('/business', businessRoutes);
 //   }
 // });
 
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
-});
+// app.listen(PORT, () => {
+//   console.log(`Server started on port -> ${PORT}`);
+// });
 
