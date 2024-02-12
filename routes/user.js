@@ -8,9 +8,11 @@ import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
 import sharp from 'sharp';
+import mongodb from 'mongodb'
 import Friends from '../models/friends.js';
 
 
+const ObjectID = mongodb.BSON.ObjectId;
 
 const router = express.Router();
 const directory = './uploads';
@@ -122,17 +124,22 @@ router.post('/map/get', authenticate, async (req, res) => {
     },
     {
       $match: {
-        'coordinates': { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
-        'endDate': null,
-        'fullname': { $ne: "Jan Jansson" }
+        coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
+        endDate: null,
+        userId: { $ne: new ObjectID(req.user.id.toString()) }
       }
     },
-    { $project: { _id: 1, userId: 1, coordinates: 1, startDate: 1, users: { avatar: 1, fullname: 1, city: 1, _id: 1 }, } },
+    {
+      $project: {
+        _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1, users: { avatar: 1, fullname: 1, city: 1, _id: 1 },
+      }
+    },
     {
       $group: {
         "_id": "$_id",
         "coordinates": { "$first": "$coordinates" },
         "userId": { "$first": "$userId" },
+        "endDate": { "$first": "$endDate" },
         "fullname": { "$first": "$users.fullname" },
         "city": { "$first": "$users.city" },
         "country": { "$first": "$users.country" },
