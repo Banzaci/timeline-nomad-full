@@ -11,6 +11,7 @@ import { Server } from "socket.io";
 import http from 'http';
 
 const app = express();
+const users = [];
 const PORT = process.env.PORT || 3000;
 
 app.use(cors())
@@ -25,12 +26,17 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-  // console.log('A user connected', socket.id);
-  // socket.on("friend-request", async (data) => {
-  //   console.log('data::', data)
-  //   const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
-  //   await friendRequest.save();
-  // });
+  console.log('A user connected', socket.id);
+  socket.on('connected', (userId) => {
+    users[userId] = socket.id;
+    console.log(users)
+  })
+  socket.on("friend-request", async ({ senderId, receiverId }) => {
+    console.log('data::', senderId, receiverId)
+    io.to(users[receiverId]).emit('friend-request', senderId);
+    // const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
+    // await friendRequest.save();
+  });
   // socket.emit("friend-request", { type: '' });
 });
 
@@ -45,7 +51,7 @@ io.on("connection_error", (err) => {
   console.log(err.context);
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   // server.listen(PORT)
   console.log('Connected to server')
 })
