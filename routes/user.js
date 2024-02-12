@@ -8,11 +8,8 @@ import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
 import sharp from 'sharp';
-import mongodb from 'mongodb'
 import Friends from '../models/friends.js';
-
-
-const ObjectID = mongodb.BSON.ObjectId;
+import { Types } from 'mongoose';
 
 const router = express.Router();
 const directory = './uploads';
@@ -113,6 +110,9 @@ router.post('/map/get', authenticate, async (req, res) => {
   const lng1 = _northEast.lng;
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
+
+  const { ObjectId } = Types;
+
   const userCoordinatess = await UserCoordinates.aggregate([
     {
       $lookup: {
@@ -126,7 +126,7 @@ router.post('/map/get', authenticate, async (req, res) => {
       $match: {
         coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
         endDate: null,
-        userId: { $ne: new ObjectID(req.user.id.toString()) }
+        userId: { $ne: new ObjectId(req.user.id.toString()) }
       }
     },
     {
