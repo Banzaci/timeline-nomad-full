@@ -254,13 +254,17 @@ export const countries = {
 };
 
 const router = express.Router();
-router.get('/', authenticate, async (req, res) => {
-  res.json({ countries, error: true, success: false });
-});
+
+const searchForCountry = (country) => {
+  return Object.keys(countries).filter((list) => {
+    return countries[list].toLocaleLowerCase().includes(country.toLocaleLowerCase())
+  });
+}
 
 router.get('/:country', authenticate, async (req, res) => {
   const { country } = req.params;
-  res.json({ error: 'Country does not exist', error: true, success: false });
+  const matchingStrings = searchForCountry(country);
+  res.json({ countries: matchingStrings, error: true, success: false });
 });
 
 export default router;

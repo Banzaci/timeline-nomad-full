@@ -101,15 +101,13 @@ router.post('/map', authenticate, async (req, res) => {
   }
 });
 
-router.post('/map/get', async (req, res) => { // authenticate
-  console.log(req.body)
+router.post('/map/get', authenticate, async (req, res) => { // 
   const { mapBounds, startDate, endDate } = req.body;
   const { _northEast, _southWest } = mapBounds
   const lat1 = _northEast.lat
   const lng1 = _northEast.lng;
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
-  console.log(mapBounds)
   const { ObjectId } = Types;
 
   const userCoordinatess = await UserCoordinates.aggregate([
@@ -121,30 +119,19 @@ router.post('/map/get', async (req, res) => { // authenticate
         as: 'users'
       },
     },
-    // { "$unwind": "$users" },
-    {
-      $lookup: {
-        from: 'tags',
-        localField: 'userId',
-        foreignField: '_id',
-        as: 'tags'
-      },
-    },
-    // { "$unwind": "$tags" },
     {
       $match: {
         coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
         endDate: null,
         userId: {
-          $ne: '65c8081471dacc27d59a004e'
-        }// new ObjectId('65c731375ccfb1cd851e6ab3 ') }// req.user.id.toString()
+          $ne: new ObjectId(req.user.id.toString())
+        }
       }
     },
     {
       $project: {
         _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1,
-        tags: { _id: 1, tagName: 1 },
-        users: { avatar: 1, fullname: 1, _id: 1 }
+        users: { avatar: 1, fullname: 1, tags: 1, _id: 1 }
       }
     },
     {
@@ -156,7 +143,7 @@ router.post('/map/get', async (req, res) => { // authenticate
         "fullname": { "$first": "$users.fullname" },
         "country": { "$first": "$users.country" },
         "avatar": { "$first": "$users.avatar" },
-        "tags": { "$first": "$tags" },
+        "tags": { "$first": "$users.tags" },
       }
     },
   ])
@@ -186,39 +173,28 @@ router.post('/upload-image', authenticate, upload.single('file'), async (req, re
 });
 
 router.post('/tag', authenticate, async (req, res) => {
-  const { tag } = req.body
+  const { tag } = req.body;
   try {
-    const exist = await Tags.exists({ userId: req.user.id, tagName: tag })
-    if (exist) {
-      res.json({ message: 'Tag already exist', error: true, success: false });
-    } else {
-      const userTag = new Tags({ userId: req.user.id, tagName: tag });
-      await userTag.save();
-      res.json({ message: 'Tag added', error: false, success: true, userTag: { _id: userTag._id, tagName: userTag.tagName } });
-    }
+    await User.findOneAndUpdate(
+      { _id: req.user.id }, { $push: { tags: tag } },
+    )
+    const tags = await User.findById(req.user.id, 'tags')
+    res.json({ message: 'Tags updated', tags, error: false, success: true });
   } catch (error) {
     res.json({ error, error: true, success: false });
   }
 });
 
-router.get('/tag', authenticate, async (req, res) => {
+router.delete('/tag/:tagName', authenticate, async (req, res) => {
+  const { tagName } = req.params;
   try {
-    const tags = await Tags.find({ userId: req.user.id }, 'id, tagName')
-    res.json({ error: false, success: true, tagNames: tags });
-  } catch (error) {
-    res.json({ error, error: true, success: false });
-  }
-});
-
-router.delete('/tag/:id', authenticate, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const response = await Tags.deleteOne({ _id: id, userId: req.user.id });
-    if (response.acknowledged) {
-      res.json({ error: false, success: true });
-    } else {
-      res.json({ error: true, success: false, error: 'Could not delete tag' });
-    }
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id }
+    )
+    await user.tags.pull(tagName);
+    await user.save();
+    const tags = await User.findById(req.user.id, 'tags')
+    res.json({ message: 'Tags updated', tags, error: false, success: true });
   } catch (error) {
     res.json({ error, error: true, success: false });
   }

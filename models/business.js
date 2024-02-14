@@ -2,7 +2,11 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
 const BusinessSchema = new mongoose.Schema({
-  companyName: {
+  company: {
+    type: String,
+    required: true,
+  },
+  fullname: {
     type: String,
     required: true,
   },
@@ -13,7 +17,6 @@ const BusinessSchema = new mongoose.Schema({
   },
   coordinates: {
     type: Object,
-    required: true,
   },
   email: {
     type: String,
@@ -29,6 +32,9 @@ const BusinessSchema = new mongoose.Schema({
   createdDate: {
     type: Date,
     default: new Date()
+  },
+  tags: {
+    type: Array,
   },
   status: {
     type: String,

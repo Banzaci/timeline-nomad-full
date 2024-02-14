@@ -34,6 +34,9 @@ const UserSchema = new mongoose.Schema({
   lastUpdated: {
     type: Date,
   },
+  tags: {
+    type: Array,
+  },
   status: {
     type: String,
     enum: ['pending', 'active', 'deleted', 'banned'],
