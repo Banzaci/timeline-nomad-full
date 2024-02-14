@@ -7,11 +7,15 @@ import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import businessRoutes from './routes/business.js';
+import notificationRoutes from './routes/notifications.js';
+import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
 import http from 'http';
+import User from './models/user.js';
+import FriendRequests from './models/friend-requests.js';
 
 const app = express();
-const users = [];
+let users = [];
 const PORT = process.env.PORT || 3000;
 
 app.use(cors())
@@ -25,19 +29,49 @@ const io = new Server(server, {
   }
 });
 
+const exist = (userId) => users.find((obj) => Object.keys(obj)[0] === userId);
+
 io.on('connection', (socket) => {
-  console.log('A user connected', socket.id);
   socket.on('connected', (userId) => {
+    // if (exist(userId)) {
+    //   users = Object.keys(users).filter((id) => id !== userId);
+    //   users[userId] = socket.id;
+    //   return;
+    // }
     users[userId] = socket.id;
-    console.log(users)
   })
-  socket.on("friend-request", async ({ senderId, receiverId }) => {
-    console.log('data::', senderId, receiverId)
-    io.to(users[receiverId]).emit('friend-request', senderId);
-    // const friendRequest = new Friends({ senderId, receiverId, lastUpdated: new Date() })
-    // await friendRequest.save();
+
+  socket.on('friend-request', async ({ senderId, receiverId }) => {
+    const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
+    await friendRequest.save();
+    const user = await User.findById(senderId);
+
+    io.to(users[receiverId]).emit('friend-request', {
+      friendId: user.id,
+      friendFullname: user.fullname
+    });
   });
-  // socket.emit("friend-request", { type: '' });
+
+  socket.on('accept-friend-request', async ({ senderId, receiverId }) => {
+    const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
+    await friendRequest.save();
+    const user = await User.findById(senderId);
+    io.to(users[receiverId]).emit('friend-request', {
+      friendId: user.id,
+      friendFullname: user.fullname
+    });
+  });
+
+  socket.on('disconnect', (reason) => {
+    if (reason === "io server disconnect") {
+      socket.connect();
+    }
+  });
+
+  socket.on('user-disconnect', (userId) => {
+    const filteredUsers = Object.keys(users).filter((id) => id !== userId);
+    users = filteredUsers;
+  });
 });
 
 io.on("connection_error", (err) => {
@@ -50,12 +84,6 @@ io.on("connection_error", (err) => {
   // some additional context, for example the XMLHttpRequest object
   console.log(err.context);
 });
-
-server.listen(PORT, () => {
-  // server.listen(PORT)
-  console.log('Connected to server')
-})
-
 
 // const esclient = new Client({
 //   node: 'https://localhost:9200/',
@@ -92,6 +120,8 @@ connectDB();
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
 app.use('/business', businessRoutes);
+app.use('/notification', notificationRoutes);
+app.use('/countries', countryRoutes);
 
 // app.get('/health', esRoutes);
 
@@ -129,3 +159,7 @@ app.use('/business', businessRoutes);
 //   console.log(`Server started on port -> ${PORT}`);
 // });
 
+server.listen(PORT, () => {
+  // server.listen(PORT)
+  console.log('Connected to server', PORT)
+})

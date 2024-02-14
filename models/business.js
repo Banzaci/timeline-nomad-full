@@ -11,6 +11,10 @@ const BusinessSchema = new mongoose.Schema({
     required: true,
     maxlength: 60,
   },
+  coordinates: {
+    type: Object,
+    required: true,
+  },
   email: {
     type: String,
     required: true,
@@ -20,9 +24,6 @@ const BusinessSchema = new mongoose.Schema({
     type: String,
   },
   country: {
-    type: String,
-  },
-  city: {
     type: String,
   },
   createdDate: {
@@ -46,6 +47,6 @@ BusinessSchema.methods.comparePassword = async function (password) {
   return matching
 };
 
-const Business = mongoose.model('Business', BusinessSchema);
+const Business = mongoose.model('business', BusinessSchema);
 
 export default Business;

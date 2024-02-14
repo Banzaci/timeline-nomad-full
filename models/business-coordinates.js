@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
 
-const UserCoordinatesSchema = new Schema({
+const BusinessCoordinatesSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -24,6 +24,6 @@ const UserCoordinatesSchema = new Schema({
   },
 });
 
-const UserCoordinates = mongoose.model('UserCoordinates', UserCoordinatesSchema);
+const BusinessCoordinates = mongoose.model('businesscoordinates', BusinessCoordinatesSchema);
 
-export default UserCoordinates;
+export default BusinessCoordinates;

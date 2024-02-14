@@ -8,7 +8,6 @@ import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
 import sharp from 'sharp';
-import Friends from '../models/friends.js';
 import { Types } from 'mongoose';
 
 const router = express.Router();
@@ -41,11 +40,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-export const saveProfileData = ({ fullname, gender, country, city, dateOfBirth }) => {
+export const saveProfileData = ({ fullname, gender, country, dateOfBirth }) => {
   const dataToBeSaved = {
     lastUpdated: new Date(),
     ...{ ...(typeof fullname === "string" && { fullname }) },
-    ...{ ...(typeof city === "string" && { city }) },
     ...{ ...(typeof country === "string" && { country }) },
     ...{ ...(dateOfBirth instanceof Date && { dateOfBirth: new Date(dateOfBirth) }) },
     ...{ ...((gender === 'Male' || gender === 'Female' || gender === 'Prefer not to say') && { gender }) }
@@ -74,8 +72,8 @@ router.patch('/profile', authenticate, async (req, res) => {
         { _id: req.user.id }, dataToBeSaved
       )
       if (user) {
-        const { fullname, gender, dateOfBirth, city, country } = user;
-        res.json({ message: 'User profile updated', error: false, success: true, user: { fullname, gender, dateOfBirth, city, country } });
+        const { fullname, gender, dateOfBirth, country } = user;
+        res.json({ message: 'User profile updated', error: false, success: true, user: { fullname, gender, dateOfBirth, country } });
       }
     } else {
       res.json({ error: 'User does not exist', error: true, success: false });
@@ -103,14 +101,15 @@ router.post('/map', authenticate, async (req, res) => {
   }
 });
 
-router.post('/map/get', authenticate, async (req, res) => {
+router.post('/map/get', async (req, res) => { // authenticate
+  console.log(req.body)
   const { mapBounds, startDate, endDate } = req.body;
   const { _northEast, _southWest } = mapBounds
   const lat1 = _northEast.lat
   const lng1 = _northEast.lng;
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
-
+  console.log(mapBounds)
   const { ObjectId } = Types;
 
   const userCoordinatess = await UserCoordinates.aggregate([
@@ -122,16 +121,30 @@ router.post('/map/get', authenticate, async (req, res) => {
         as: 'users'
       },
     },
+    // { "$unwind": "$users" },
+    {
+      $lookup: {
+        from: 'tags',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'tags'
+      },
+    },
+    // { "$unwind": "$tags" },
     {
       $match: {
         coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
         endDate: null,
-        userId: { $ne: new ObjectId(req.user.id.toString()) }
+        userId: {
+          $ne: '65c8081471dacc27d59a004e'
+        }// new ObjectId('65c731375ccfb1cd851e6ab3 ') }// req.user.id.toString()
       }
     },
     {
       $project: {
-        _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1, users: { avatar: 1, fullname: 1, city: 1, _id: 1 },
+        _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1,
+        tags: { _id: 1, tagName: 1 },
+        users: { avatar: 1, fullname: 1, _id: 1 }
       }
     },
     {
@@ -141,12 +154,12 @@ router.post('/map/get', authenticate, async (req, res) => {
         "userId": { "$first": "$userId" },
         "endDate": { "$first": "$endDate" },
         "fullname": { "$first": "$users.fullname" },
-        "city": { "$first": "$users.city" },
         "country": { "$first": "$users.country" },
         "avatar": { "$first": "$users.avatar" },
+        "tags": { "$first": "$tags" },
       }
     },
-  ]);
+  ])
   res.json(userCoordinatess);
 });
 
@@ -225,5 +238,6 @@ router.delete('/profile/:id', authenticate, async (req, res) => {
     res.json({ error, error: true, success: false });
   }
 });
+
 
 export default router;

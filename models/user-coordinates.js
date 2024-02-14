@@ -24,6 +24,6 @@ const UserCoordinatesSchema = new Schema({
   },
 });
 
-const UserCoordinates = mongoose.model('UserCoordinates', UserCoordinatesSchema);
+const UserCoordinates = mongoose.model('usercoordinates', UserCoordinatesSchema);
 
 export default UserCoordinates;

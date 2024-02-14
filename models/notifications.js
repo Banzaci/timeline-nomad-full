@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
 
-const FriendsSchema = new mongoose.Schema({
+const NotificationsSchema = new mongoose.Schema({
   createdDate: {
     type: Date,
     default: new Date(),
@@ -29,6 +29,6 @@ const FriendsSchema = new mongoose.Schema({
   },
 });
 
-const Friends = mongoose.model('friends', FriendsSchema);
+const Friends = mongoose.model('notification', NotificationsSchema);
 
-export default Friends;
+export default Notifications;
