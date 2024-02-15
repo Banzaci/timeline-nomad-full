@@ -108,6 +108,7 @@ router.post('/map/get', authenticate, async (req, res) => { //
   const lng1 = _northEast.lng;
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
+
   const { ObjectId } = Types;
 
   const userCoordinatess = await UserCoordinates.aggregate([
