@@ -7,7 +7,7 @@ import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import businessRoutes from './routes/business.js';
-import notificationRoutes from './routes/notifications.js';
+import notificationRoutes from './routes/notification.js';
 import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
 import http from 'http';
@@ -42,14 +42,19 @@ io.on('connection', (socket) => {
   })
 
   socket.on('friend-request', async ({ senderId, receiverId }) => {
+    const existRequest = FriendRequests.findOne({ senderId, receiverId });
+    // if(existRequest)
     const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
     await friendRequest.save();
     const user = await User.findById(senderId);
 
-    io.to(users[receiverId]).emit('friend-request', {
+    const friend = {
       friendId: user.id,
-      friendFullname: user.fullname
-    });
+      friendFullname: user.fullname,
+      status: 'pending',
+    };
+    io.to(users[senderId]).emit('friend-request', friend);
+    io.to(users[receiverId]).emit('friend-request-response', friend);
   });
 
   socket.on('accept-friend-request', async ({ senderId, receiverId }) => {

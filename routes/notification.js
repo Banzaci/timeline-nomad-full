@@ -5,9 +5,14 @@ import { Types } from 'mongoose';
 
 const router = express.Router();
 
-router.get('/:id', async (req, res) => {//authenticate
+const mapStatus = {
+  'declined': 'You have declined the request',
+  'accepted': 'You are now buddys',
+}
+
+router.get('/:id', authenticate, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // tags
     const { ObjectId } = Types;
 
     const friendRequests = await FriendRequestsSchema.aggregate([
@@ -29,6 +34,7 @@ router.get('/:id', async (req, res) => {//authenticate
           _id: 1, receiverId: 1, senderId: 1, fullname: 1, status: 1, user: { tags: 1, avatar: 1, fullname: 1, _id: 1 },
         }
       },
+      { $sort: { createdDate: 1 } },
       {
         $group: {
           "_id": "$_id",
@@ -43,6 +49,16 @@ router.get('/:id', async (req, res) => {//authenticate
       },
     ]);
     res.json({ error: false, success: true, friendRequests });
+  } catch (error) {
+    res.json({ error, error: true, success: false });
+  }
+});
+
+router.post('/', authenticate, async (req, res) => {
+  try {
+    const { status, senderId } = req.body;
+    await FriendRequestsSchema.findOneAndUpdate({ senderId, receiverId: req.user.id }, { status, lastUpdated: new Date() })
+    res.json({ error: false, success: true, status: mapStatus[status] });
   } catch (error) {
     res.json({ error, error: true, success: false });
   }

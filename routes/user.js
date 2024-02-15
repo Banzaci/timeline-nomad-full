@@ -64,6 +64,20 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
+router.get('/profile/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  if (id) {
+    const userById = await User.findById(id, 'fullname avatar tags createdDate');
+    if (userById) {
+      res.json({ user: userById });
+    } else {
+      res.json({ error: 'User does not exist', error: true, success: false });
+    }
+  } else {
+    res.json({ error: 'User does not exist', error: true, success: false });
+  }
+});
+
 router.patch('/profile', authenticate, async (req, res) => {
   try {
     if (req.user.id) {
@@ -205,7 +219,7 @@ router.delete('/profile/:id', authenticate, async (req, res) => {
   const { id } = req.params;
   try {
     if (req.user.role === 'admin') {
-      const user = await User.findById(id, 'email, avatar');
+      const user = await User.findById(id, 'email avatar');
       fs.unlinkSync(user.avatar); // remove folder
       await User.deleteOne({ _id: id });
       await Tags.deleteMany({ userId: id });
