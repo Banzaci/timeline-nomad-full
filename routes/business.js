@@ -2,11 +2,11 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import authenticate from '../middlewares/auth.js';
-import UserCoordinates from '../models/user-coordinates.js';
 import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
 import sharp from 'sharp';
+import Business from '../models/business.js';
 
 const router = express.Router();
 const directory = './uploads-business';
@@ -40,10 +40,10 @@ const upload = multer({ storage });
 
 router.get('/profile', authenticate, async (req, res) => {
   if (req.user.id) {
-    const userCoordinate = await UserCoordinates.findOne({ userId: req.user.id, endDate: null })
-    res.json({ ...req.user, ...{ coordinates: userCoordinate.coordinates } });
+    // const userCoordinate = await Business.findOne({ userId: req.user.id })
+    res.json({ ...req.user });
   } else {
-    res.json({ error: 'User doesnot exist', error: true, success: false });
+    res.json({ error: 'User does not exist', error: true, success: false });
   }
 });
 

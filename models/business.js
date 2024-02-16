@@ -26,15 +26,13 @@ const BusinessSchema = new mongoose.Schema({
   avatar: {
     type: String,
   },
-  country: {
-    type: String,
-  },
   createdDate: {
     type: Date,
     default: new Date()
   },
   tags: {
     type: Array,
+    default: []
   },
   status: {
     type: String,

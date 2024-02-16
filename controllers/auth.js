@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import User from '../models/user.js';
+import Business from '../models/business.js';
 import axios from 'axios';
 
 const emailRegex = new RegExp(/^[A-Za-z0-9_!#$%&'*+\/=?`{|}~^.-]+@[A-Za-z0-9.-]+$/, "gm");
@@ -43,6 +44,43 @@ export const register = async (req, res, next) => {
   }
 };
 
+export const registerBusiness = async (req, res, next) => {
+  const { company, fullname, password, email, token } = req.body;
+  try {
+    // const response = await axios.post(
+    //   `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_PRIVATE_KEY}&response=${token}`
+    // );
+    // if (response.data.success) {
+    const findUser = await Business.findOne({ email });
+    if (findUser) {
+      return res.status(401).json({ message: 'A business user with this email already exist' });
+    }
+    if (!password) {
+      return res.status(401).json({ message: 'Enter a password' });
+    }
+    if (!checkIfValidEmail(email)) {
+      return res.status(401).json({ message: 'Un valid email' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const business = new Business({ company, fullname, email, password: hashedPassword });
+
+    await business.save();
+
+    const token = jwt.sign({ businessId: business._id }, process.env.SECRET_KEY, {
+      expiresIn: '48 hour'
+    });
+
+    res.json(token);
+    // } else {
+    //   res.send("Robot 🤖");
+    // }
+  } catch (error) {
+    console.log(error)
+    next(error);
+  }
+};
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -60,9 +98,31 @@ export const login = async (req, res, next) => {
     const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, {
       expiresIn: '48 hour'
     });
-    res.json(token);
+    res.json(`user__${token}`);
   } catch (error) {
     next(error);
   }
 };
 
+export const loginBusiness = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const business = await Business.findOne({ email });
+
+    if (!business) {
+      return res.status(404).json({ message: 'Business not found' });
+    }
+    const passwordMatch = await business.comparePassword(password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ message: 'Incorrect password' });
+    }
+
+    const token = jwt.sign({ businessId: business._id }, process.env.SECRET_KEY, {
+      expiresIn: '48 hour'
+    });
+    res.json(`business__${token}`);
+  } catch (error) {
+    next(error);
+  }
+};

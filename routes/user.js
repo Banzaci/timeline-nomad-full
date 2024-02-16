@@ -7,6 +7,7 @@ import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
 import Tags from '../models/tags.js';
+import getFriends from '../utils/friends.js';
 import sharp from 'sharp';
 import { Types } from 'mongoose';
 
@@ -66,13 +67,44 @@ router.get('/profile', authenticate, async (req, res) => {
 
 router.get('/profile/:id', authenticate, async (req, res) => {
   const { id } = req.params;
+  const { ObjectId } = Types;
   if (id) {
-    const userById = await User.findById(id, 'fullname avatar tags createdDate');
-    if (userById) {
-      res.json({ user: userById });
-    } else {
-      res.json({ error: 'User does not exist', error: true, success: false });
-    }
+    const user = await User.aggregate([
+      {
+        $lookup: {
+          from: 'friendrequests',
+          localField: 'senderId',
+          foreignField: '_id',
+          as: 'friendrequest'
+        },
+      },
+      { "$unwind": { "path": "$friendrequest", "preserveNullAndEmptyArrays": true } },
+      {
+        $match: {
+          _id: {
+            $eq: new ObjectId(id.toString())
+          }
+        }
+      },
+      {
+        $project: {
+          avatar: 1, fullname: 1, tags: 1, _id: 1, createdDate: 1,
+          friendrequest: { status: 1 },
+        }
+      },
+      {
+        $group: {
+          "_id": "$_id",
+          "fullname": { "$first": "$fullname" },
+          "country": { "$first": "$country" },
+          "avatar": { "$first": "$avatar" },
+          "tags": { "$first": "$tags" },
+          "createdDate": { "$first": "$createdDate" },
+          "status": { "$first": "$friendrequest.status" },
+        }
+      },
+    ])
+    res.json({ user });
   } else {
     res.json({ error: 'User does not exist', error: true, success: false });
   }
@@ -115,8 +147,8 @@ router.post('/map', authenticate, async (req, res) => {
   }
 });
 
-router.post('/map/get', authenticate, async (req, res) => { // 
-  const { mapBounds, startDate, endDate } = req.body;
+router.post('/map/get', authenticate, async (req, res) => {
+  const { mapBounds, tagsChecked } = req.body;
   const { _northEast, _southWest } = mapBounds
   const lat1 = _northEast.lat
   const lng1 = _northEast.lng;
@@ -131,9 +163,19 @@ router.post('/map/get', authenticate, async (req, res) => { //
         from: 'users',
         localField: 'userId',
         foreignField: '_id',
-        as: 'users'
+        as: 'user'
       },
     },
+    { "$unwind": { "path": "$user", "preserveNullAndEmptyArrays": true } },
+    {
+      $lookup: {
+        from: 'friendrequests',
+        localField: 'userId',
+        foreignField: 'receiverId',
+        as: 'friendrequest'
+      },
+    },
+    { "$unwind": { "path": "$friendrequest", "preserveNullAndEmptyArrays": true } },
     {
       $match: {
         coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
@@ -146,7 +188,15 @@ router.post('/map/get', authenticate, async (req, res) => { //
     {
       $project: {
         _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1,
-        users: { avatar: 1, fullname: 1, tags: 1, _id: 1 }
+        friendrequest: { status: 1 },
+        user: {
+          avatar: 1, fullname: 1, tags: 1, _id: 1
+        },
+      }
+    },
+    {
+      $match: {
+        "user.tags": { $in: tagsChecked }
       }
     },
     {
@@ -154,13 +204,14 @@ router.post('/map/get', authenticate, async (req, res) => { //
         "_id": "$_id",
         "coordinates": { "$first": "$coordinates" },
         "userId": { "$first": "$userId" },
-        "endDate": { "$first": "$endDate" },
-        "fullname": { "$first": "$users.fullname" },
-        "country": { "$first": "$users.country" },
-        "avatar": { "$first": "$users.avatar" },
-        "tags": { "$first": "$users.tags" },
+        "fullname": { "$first": "$user.fullname" },
+        "country": { "$first": "$user.country" },
+        "avatar": { "$first": "$user.avatar" },
+        "tags": { "$first": "$user.tags" },
+        "status": { "$first": "$friendrequest.status" },
       }
     },
+
   ])
   res.json(userCoordinatess);
 });
@@ -227,6 +278,16 @@ router.delete('/profile/:id', authenticate, async (req, res) => {
     }
   } catch (error) {
     res.json({ error, error: true, success: false });
+  }
+});
+
+router.get('/friends/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  if (id) {
+    const friends = await getFriends(id)
+    res.json({ friends });
+  } else {
+    res.json({ error: 'User does not exist', error: true, success: false });
   }
 });
 

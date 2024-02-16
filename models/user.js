@@ -36,6 +36,7 @@ const UserSchema = new mongoose.Schema({
   },
   tags: {
     type: Array,
+    default: []
   },
   status: {
     type: String,

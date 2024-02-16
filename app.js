@@ -7,12 +7,13 @@ import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
 import businessRoutes from './routes/business.js';
-import notificationRoutes from './routes/notification.js';
+import notificationRoutes from './routes/friend-requests.js';
 import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
 import http from 'http';
 import User from './models/user.js';
 import FriendRequests from './models/friend-requests.js';
+import getFriendRequest from './utils/friend-requests.js';
 
 const app = express();
 let users = [];
@@ -29,43 +30,44 @@ const io = new Server(server, {
   }
 });
 
-const exist = (userId) => users.find((obj) => Object.keys(obj)[0] === userId);
-
 io.on('connection', (socket) => {
   socket.on('connected', (userId) => {
-    // if (exist(userId)) {
-    //   users = Object.keys(users).filter((id) => id !== userId);
-    //   users[userId] = socket.id;
-    //   return;
-    // }
     users[userId] = socket.id;
   })
 
   socket.on('friend-request', async ({ senderId, receiverId }) => {
-    const existRequest = FriendRequests.findOne({ senderId, receiverId });
-    // if(existRequest)
+    const existRequest = await FriendRequests.exists({ senderId, receiverId });
+
+    if (existRequest) {
+      io.to(users[senderId]).emit('friend-request-response', { success: false, message: 'exist', receiverId, status: 'exist' });
+      return;
+    }
+    console.log('existRequest', existRequest)
+
     const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
     await friendRequest.save();
+    const friendRequests = await getFriendRequest(receiverId);
     const user = await User.findById(senderId);
 
     const friend = {
       friendId: user.id,
       friendFullname: user.fullname,
       status: 'pending',
+      receiverId
     };
-    io.to(users[senderId]).emit('friend-request', friend);
-    io.to(users[receiverId]).emit('friend-request-response', friend);
+
+    console.log(senderId, receiverId)
+    io.to(users[receiverId]).emit('friend-request', { success: true, message: 'received', friendRequests }); //TODO
+    io.to(users[senderId]).emit('friend-request-response', { success: true, message: 'sent', receiverId, status: 'pending' });
   });
 
-  socket.on('accept-friend-request', async ({ senderId, receiverId }) => {
-    const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
-    await friendRequest.save();
-    const user = await User.findById(senderId);
-    io.to(users[receiverId]).emit('friend-request', {
-      friendId: user.id,
-      friendFullname: user.fullname
-    });
-  });
+  // socket.on('accept-friend-request', async ({ senderId, receiverId }) => {
+  //   console.log('accept-friend-request')
+  //   const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
+  //   await friendRequest.save();
+  //   const friendRequests = await getFriendRequest(receiverId);
+  //   io.to(users[receiverId]).emit('friend-request', friendRequests);
+  // });
 
   socket.on('disconnect', (reason) => {
     if (reason === "io server disconnect") {
