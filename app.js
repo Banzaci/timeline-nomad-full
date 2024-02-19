@@ -6,7 +6,6 @@ import bodyParser from 'body-parser';
 import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
-import businessRoutes from './routes/business.js';
 import notificationRoutes from './routes/friend-requests.js';
 import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
@@ -126,7 +125,6 @@ connectDB();
 
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
-app.use('/business', businessRoutes);
 app.use('/notification', notificationRoutes);
 app.use('/countries', countryRoutes);
 

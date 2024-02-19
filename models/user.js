@@ -15,6 +15,9 @@ const UserSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  company: {
+    type: String,
+  },
   avatar: {
     type: String,
   },
@@ -22,6 +25,9 @@ const UserSchema = new mongoose.Schema({
     type: String,
   },
   country: {
+    type: String,
+  },
+  bio: {
     type: String,
   },
   dateOfBirth: {
@@ -37,6 +43,11 @@ const UserSchema = new mongoose.Schema({
   tags: {
     type: Array,
     default: []
+  },
+  type: {
+    type: String,
+    enum: ['user', 'business'],
+    default: 'user'
   },
   status: {
     type: String,

@@ -41,11 +41,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-export const saveProfileData = ({ fullname, gender, country, dateOfBirth }) => {
+export const saveProfileData = ({ fullname, gender, country, dateOfBirth, company }) => {
   const dataToBeSaved = {
     lastUpdated: new Date(),
     ...{ ...(typeof fullname === "string" && { fullname }) },
     ...{ ...(typeof country === "string" && { country }) },
+    ...{ ...(typeof country === "string" && { country }) },
+    ...{ ...(typeof company === "string" && { company }) },
     ...{ ...(dateOfBirth instanceof Date && { dateOfBirth: new Date(dateOfBirth) }) },
     ...{ ...((gender === 'Male' || gender === 'Female' || gender === 'Prefer not to say') && { gender }) }
   }
@@ -118,8 +120,28 @@ router.patch('/profile', authenticate, async (req, res) => {
         { _id: req.user.id }, dataToBeSaved
       )
       if (user) {
-        const { fullname, gender, dateOfBirth, country } = user;
-        res.json({ message: 'User profile updated', error: false, success: true, user: { fullname, gender, dateOfBirth, country } });
+        const { fullname, gender, dateOfBirth, country, type } = user;
+        res.json({ message: 'User profile updated', error: false, success: true, user: { type, fullname, gender, dateOfBirth, country } });
+      }
+    } else {
+      res.json({ error: 'User does not exist', error: true, success: false });
+    }
+  } catch (error) {
+    console.log(error)
+    res.json({ error, error: true, success: false });
+  }
+});
+
+router.patch('/profile/business', authenticate, async (req, res) => {
+  try {
+    if (req.user.id) {
+      const dataToBeSaved = saveProfileData(req.body);
+      const user = await User.findOneAndUpdate(
+        { _id: req.user.id }, dataToBeSaved
+      )
+      if (user) {
+        const { fullname, company, type } = user;
+        res.json({ message: 'User profile updated', error: false, success: true, user: { fullname, company, type } });
       }
     } else {
       res.json({ error: 'User does not exist', error: true, success: false });
