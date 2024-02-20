@@ -70,12 +70,13 @@ export const registerBusiness = async (req, res, next) => {
     next(error);
   }
 };
+const types = ['user', 'business']
 
 export const login = async (req, res, next) => {
   try {
     const { email, password, type } = req.body;
 
-    if (type !== 'user' && type !== 'business') {
+    if (!types.includes(type)) {
       return res.status(404).json({ message: 'User type not found' });
     }
 

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import authenticate from '../middlewares/auth.js';
 import UserCoordinates from '../models/user-coordinates.js';
+import FriendRequests from '../models/friend-requests.js';
 import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
@@ -179,7 +180,7 @@ router.post('/map/get', authenticate, async (req, res) => {
 
   const { ObjectId } = Types;
 
-  const userCoordinatess = await UserCoordinates.aggregate([
+  const apa = [
     {
       $lookup: {
         from: 'users',
@@ -212,15 +213,15 @@ router.post('/map/get', authenticate, async (req, res) => {
         _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1,
         friendrequest: { status: 1 },
         user: {
-          avatar: 1, fullname: 1, tags: 1, _id: 1
+          avatar: 1, fullname: 1, tags: 1, _id: 1, company: 1, type: 1
         },
       }
     },
-    {
-      $match: {
-        "user.tags": { $in: tagsChecked }
-      }
-    },
+    // {
+    //   $match: {
+    //     "user.tags": { $in: tagsChecked } // only if users
+    //   },
+    // },
     {
       $group: {
         "_id": "$_id",
@@ -230,11 +231,14 @@ router.post('/map/get', authenticate, async (req, res) => {
         "country": { "$first": "$user.country" },
         "avatar": { "$first": "$user.avatar" },
         "tags": { "$first": "$user.tags" },
+        "company": { "$first": "$user.company" },
+        "type": { "$first": "$user.type" },
         "status": { "$first": "$friendrequest.status" },
       }
     },
 
-  ])
+  ]
+  const userCoordinatess = await UserCoordinates.aggregate(apa)
   res.json(userCoordinatess);
 });
 
@@ -313,5 +317,16 @@ router.get('/friends/:id', authenticate, async (req, res) => {
   }
 });
 
+router.get('/friends', authenticate, async (req, res) => {
+  try {
+    console.log(req.user.id)
+    const friends = await FriendRequests.find({ $or: [{ 'senderId': req.user.id }, { 'receiverId': req.user.id }] });
+    console.log('dadsa')
+    res.json({ friends, error: false, success: true });
+  } catch (error) {
+    console.log(error)
+    res.json({ error: 'Friends does not exist', error: true, success: false });
+  }
+});
 
 export default router;

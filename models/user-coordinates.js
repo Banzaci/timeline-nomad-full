@@ -17,6 +17,7 @@ const UserCoordinatesSchema = new Schema({
   },
   endDate: {
     type: Date,
+    default: null
   },
   createdDate: {
     type: Date,

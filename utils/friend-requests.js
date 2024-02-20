@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 const { ObjectId } = Types;
 
 const getFriendRequest = async (receiverId) => {
+  const id = new ObjectId(receiverId)
   const friendRequests = await FriendRequestsSchema.aggregate([
     {
       $lookup: {
@@ -15,7 +16,8 @@ const getFriendRequest = async (receiverId) => {
     },
     {
       $match: {
-        receiverId: { $eq: new ObjectId(receiverId) }
+        // receiverId: { $eq: new ObjectId(receiverId) }
+        $or: [{ receiverId: id }, { senderId: id }]
       }
     },
     {

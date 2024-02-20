@@ -6,11 +6,12 @@ import bodyParser from 'body-parser';
 import connectDB from './db.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
+import jwt from 'jsonwebtoken';
+import User from './models/user.js';
 import notificationRoutes from './routes/friend-requests.js';
 import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
 import http from 'http';
-import User from './models/user.js';
 import FriendRequests from './models/friend-requests.js';
 import getFriendRequest from './utils/friend-requests.js';
 
@@ -29,6 +30,28 @@ const io = new Server(server, {
   }
 });
 
+// io.use((socket, next) => {
+// https://socket.io/docs/v4/middlewares/
+//   if (!token) {
+//     return res.status(401).json({ message: 'Authentication required' });
+//   }
+//   const decodedToken = jwt.verify(token, process.env.SECRET_KEY);
+//   const user = await User.findById(decodedToken.userId);
+
+//   if (!user) {
+//     return res.status(404).json({ message: 'User not found' });
+//   }
+// });
+
+// io.engine.use(async (req, res, next) => {
+//   const header = req.headers["authorization"];
+//   const decodedToken = jwt.verify(header?.split(' ')[1], process.env.SECRET_KEY);
+//   const user = await User.findById(decodedToken.userId);
+//   if (user) {
+//     next();
+//   }
+// });
+
 io.on('connection', (socket) => {
   socket.on('connected', (userId) => {
     users[userId] = socket.id;
@@ -41,23 +64,27 @@ io.on('connection', (socket) => {
       io.to(users[senderId]).emit('friend-request-response', { success: false, message: 'exist', receiverId, status: 'exist' });
       return;
     }
-    console.log('existRequest', existRequest)
 
     const friendRequest = new FriendRequests({ senderId, receiverId, lastUpdated: new Date() })
     await friendRequest.save();
     const friendRequests = await getFriendRequest(receiverId);
     const user = await User.findById(senderId);
 
-    const friend = {
-      friendId: user.id,
-      friendFullname: user.fullname,
-      status: 'pending',
-      receiverId
-    };
+    // const friend = {
+    //   friendId: user.id,
+    //   friendFullname: user.fullname,
+    //   status: 'pending',
+    //   receiverId
+    // };
 
-    console.log(senderId, receiverId)
     io.to(users[receiverId]).emit('friend-request', { success: true, message: 'received', friendRequests }); //TODO
     io.to(users[senderId]).emit('friend-request-response', { success: true, message: 'sent', receiverId, status: 'pending' });
+  });
+
+
+  socket.on('on-send-message', async ({ senderId, receiverId, message, token }) => {
+    io.to(users[receiverId]).emit('on-new-message', message);
+    io.to(users[senderId]).emit('on-send-message-sent');
   });
 
   // socket.on('accept-friend-request', async ({ senderId, receiverId }) => {
