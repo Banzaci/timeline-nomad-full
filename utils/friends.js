@@ -1,9 +1,6 @@
 import FriendRequestsSchema from '../models/friend-requests.js';
-import { Types } from 'mongoose';
 
-const { ObjectId } = Types;
-
-const getFriends = async (receiverId) => {
+const getFriends = async (id) => {
   const friendRequests = await FriendRequestsSchema.aggregate([
     {
       $lookup: {
@@ -16,7 +13,7 @@ const getFriends = async (receiverId) => {
     { "$unwind": { "path": "$users", "preserveNullAndEmptyArrays": true } },
     {
       $match: {
-        receiverId: { $eq: new ObjectId(receiverId) },
+        $or: [{ 'senderId': id }, { 'receiverId': id }],
         status: 'accepted'
       }
     },

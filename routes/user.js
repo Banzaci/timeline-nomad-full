@@ -195,10 +195,19 @@ router.post('/map/get', authenticate, async (req, res) => {
         from: 'friendrequests',
         localField: 'userId',
         foreignField: 'receiverId',
-        as: 'friendrequest'
+        as: 'friendrequestReceiver'
       },
     },
-    { "$unwind": { "path": "$friendrequest", "preserveNullAndEmptyArrays": true } },
+    { "$unwind": { "path": "$friendrequestReceiver", "preserveNullAndEmptyArrays": true } },
+    {
+      $lookup: {
+        from: 'friendrequests',
+        localField: 'userId',
+        foreignField: 'senderId',
+        as: 'friendrequestSender'
+      },
+    },
+    { "$unwind": { "path": "$friendrequestSender", "preserveNullAndEmptyArrays": true } },
     {
       $match: {
         coordinates: { $geoWithin: { $box: [[lng2, lat2], [lng1, lat1]] } },
@@ -211,7 +220,8 @@ router.post('/map/get', authenticate, async (req, res) => {
     {
       $project: {
         _id: 1, userId: 1, coordinates: 1, startDate: 1, endDate: 1,
-        friendrequest: { status: 1 },
+        friendrequestReceiver: { status: 1, senderId: 1, receiverId: 1 },
+        friendrequestSender: { status: 1, senderId: 1, receiverId: 1 },
         user: {
           avatar: 1, fullname: 1, tags: 1, _id: 1, company: 1, type: 1
         },
@@ -233,7 +243,12 @@ router.post('/map/get', authenticate, async (req, res) => {
         "tags": { "$first": "$user.tags" },
         "company": { "$first": "$user.company" },
         "type": { "$first": "$user.type" },
-        "status": { "$first": "$friendrequest.status" },
+        "statusReceiver": { "$first": "$friendrequestReceiver.status" },
+        "receiverIdReceiver": { "$first": "$friendrequestReceiver.receiverId" },
+        "senderIdReceiver": { "$first": "$friendrequestReceiver.senderId" },
+        "statusSender": { "$first": "$friendrequestSender.status" },
+        "senderIdSender": { "$first": "$friendrequestSender.senderId" },
+        "receiverIdSender": { "$first": "$friendrequestSender.receiverId" },
       }
     },
 
@@ -321,7 +336,6 @@ router.get('/friends', authenticate, async (req, res) => {
   try {
     console.log(req.user.id)
     const friends = await FriendRequests.find({ $or: [{ 'senderId': req.user.id }, { 'receiverId': req.user.id }] });
-    console.log('dadsa')
     res.json({ friends, error: false, success: true });
   } catch (error) {
     console.log(error)
