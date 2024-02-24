@@ -13,6 +13,7 @@ import countryRoutes from './routes/countries.js';
 import { Server } from "socket.io";
 import http from 'http';
 import FriendRequests from './models/friend-requests.js';
+import Messages from './models/messages.js';
 import getFriendRequest from './utils/friend-requests.js';
 
 const app = express();
@@ -83,8 +84,15 @@ io.on('connection', (socket) => {
 
 
   socket.on('on-send-message', async ({ senderId, receiverId, message, token }) => {
-    io.to(users[receiverId]).emit('on-new-message', message);
-    io.to(users[senderId]).emit('on-send-message-sent');
+    const newMessage = new Messages({ senderId, receiverId, message });
+    await newMessage.save();
+    io.to(users[receiverId]).emit('on-from-message', { message });
+    io.to(users[senderId]).emit('on-from-message', { message });
+  });
+
+  socket.on('respond-to-friend-request', async ({ senderId, receiverId, status, token }) => {
+    io.to(users[receiverId]).emit('on-respond-to-friend-request', { senderId, receiverId, status });
+    io.to(users[senderId]).emit('on-respond-to-friend-request-sent', { senderId, receiverId, status });
   });
 
   // socket.on('accept-friend-request', async ({ senderId, receiverId }) => {

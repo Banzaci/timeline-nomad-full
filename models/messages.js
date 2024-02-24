@@ -2,19 +2,20 @@ import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
 
-const ConversationSchema = new Schema({
-  isFromUserId: {
+const MessageSchema = new Schema({
+  senderId: {
     type: Schema.Types.ObjectId,
     ref: 'users',
     required: true,
   },
-  headerId: {
+  receiverId: {
     type: Schema.Types.ObjectId,
-    ref: 'header',
+    ref: 'users',
     required: true,
   },
   message: {
-    type: String
+    type: String,
+    required: true,
   },
   status: {
     type: String,
@@ -23,10 +24,10 @@ const ConversationSchema = new Schema({
   },
   createdDate: {
     type: Date,
-    default: new Date()
+    default: new Date().getTime()
   },
 });
 
-const Conversation = mongoose.model('conversation', ConversationSchema);
+const Conversation = mongoose.model('messages', MessageSchema);
 
 export default Conversation;

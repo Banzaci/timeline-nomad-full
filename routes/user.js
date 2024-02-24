@@ -4,6 +4,9 @@ import path from 'path';
 import authenticate from '../middlewares/auth.js';
 import UserCoordinates from '../models/user-coordinates.js';
 import FriendRequests from '../models/friend-requests.js';
+import Friend from '../models/friends.js';
+import Blocked from '../models/blocked.js';
+import Messages from '../models/messages.js';
 import { formatDate } from '../utils/date.js';
 import multer from 'multer';
 import User from '../models/user.js';
@@ -14,6 +17,8 @@ import { Types } from 'mongoose';
 
 const router = express.Router();
 const directory = './uploads';
+
+const { ObjectId } = Types;
 
 const storage = multer.diskStorage({
   limits: {
@@ -70,7 +75,6 @@ router.get('/profile', authenticate, async (req, res) => {
 
 router.get('/profile/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { ObjectId } = Types;
   if (id) {
     const user = await User.aggregate([
       {
@@ -178,9 +182,7 @@ router.post('/map/get', authenticate, async (req, res) => {
   const lat2 = _southWest.lat
   const lng2 = _southWest.lng;
 
-  const { ObjectId } = Types;
-
-  const apa = [
+  const mapData = [
     {
       $lookup: {
         from: 'users',
@@ -243,17 +245,17 @@ router.post('/map/get', authenticate, async (req, res) => {
         "tags": { "$first": "$user.tags" },
         "company": { "$first": "$user.company" },
         "type": { "$first": "$user.type" },
-        "statusReceiver": { "$first": "$friendrequestReceiver.status" },
-        "receiverIdReceiver": { "$first": "$friendrequestReceiver.receiverId" },
-        "senderIdReceiver": { "$first": "$friendrequestReceiver.senderId" },
-        "statusSender": { "$first": "$friendrequestSender.status" },
-        "senderIdSender": { "$first": "$friendrequestSender.senderId" },
-        "receiverIdSender": { "$first": "$friendrequestSender.receiverId" },
+        "frReceiverStatus": { "$first": "$friendrequestReceiver.status" },
+        "frReceiverId": { "$first": "$friendrequestReceiver.receiverId" },
+        "frReceiverSenderId": { "$first": "$friendrequestReceiver.senderId" },
+        "frSenderStatus": { "$first": "$friendrequestSender.status" },
+        "frSenderId": { "$first": "$friendrequestSender.senderId" },
+        "frSenderReceiverId": { "$first": "$friendrequestSender.receiverId" },
       }
     },
 
   ]
-  const userCoordinatess = await UserCoordinates.aggregate(apa)
+  const userCoordinatess = await UserCoordinates.aggregate(mapData)
   res.json(userCoordinatess);
 });
 
@@ -334,9 +336,149 @@ router.get('/friends/:id', authenticate, async (req, res) => {
 
 router.get('/friends', authenticate, async (req, res) => {
   try {
-    console.log(req.user.id)
-    const friends = await FriendRequests.find({ $or: [{ 'senderId': req.user.id }, { 'receiverId': req.user.id }] });
+    const id = new ObjectId(req.user.id.toString())
+    // const friends = await FriendRequests.find({ $or: [{ 'senderId': req.user.id }, { 'receiverId': req.user.id }] });
+    const friends = await FriendRequests.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'senderId',
+          foreignField: '_id',
+          as: 'user'
+        },
+      },
+      { "$unwind": { "path": "$user", "preserveNullAndEmptyArrays": true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'receiverId',
+          foreignField: '_id',
+          as: 'receiver'
+        },
+      },
+      { "$unwind": { "path": "$receiver", "preserveNullAndEmptyArrays": true } },
+      {
+        $match: { $or: [{ senderId: id }, { receiverId: id }] }
+      },
+      {
+        $project: {
+          _id: 1,
+          receiver: { fullname: 1, avatar: 1, id: 1 },
+        }
+      },
+      {
+        $group: {
+          "_id": "$_id",
+          "userId": { "$first": "$receiver.id" },
+          "fullname": { "$first": "$receiver.fullname" },
+          "avatar": { "$first": "$receiver.avatar" },
+        }
+      },
+    ])
     res.json({ friends, error: false, success: true });
+  } catch (error) {
+    console.log(error)
+    res.json({ error: 'Friends does not exist', error: true, success: false });
+  }
+});
+
+router.post('/friend-request', authenticate, async (req, res) => {
+  try {
+    new FriendRequests({ senderId: req.user.id }, { receiverId: req.user.id });
+    new FriendRequests({ receiverId: req.user.id }, { senderId: req.user.id });
+    res.json({ error: false, success: true });
+  } catch (error) {
+    console.log(error)
+    res.json({ error: 'Friends does not exist', error: true, success: false });
+  }
+});
+
+router.post('/friend-request/:id', authenticate, async (req, res) => {
+  try {
+    const { status, userId } = req.body
+    if (status === 'rejected') {
+      await FriendRequests.findOneAndUpdate({ $and: [{ senderId: new ObjectId(req.user.id.toString()) }, { receiverId: new ObjectId(userId) }] }, { status: 'rejected' });
+    } else if (status === 'blocked') {
+      await FriendRequests.findOneAndDelete({ $and: [{ senderId: new ObjectId(req.user.id.toString()) }, { receiverId: new ObjectId(userId) }] });
+      const blocked = new Blocked({ senderId: req.user.id }, { receiverId: req.user.id });
+      await blocked.save()
+    } else {
+      await FriendRequests.findOneAndDelete({ $and: [{ senderId: new ObjectId(req.user.id.toString()) }, { receiverId: new ObjectId(userId) }] });
+      const friend = new Friend({ senderId: req.user.id }, { receiverId: req.user.id });
+      await friend.save()
+    }
+    res.json({ error: false, success: true });
+  } catch (error) {
+    console.log(error)
+    res.json({ error: 'Friends does not exist', error: true, success: false });
+  }
+});
+
+router.get('/messages/:userId', authenticate, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const messages = await Messages.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'senderId',
+          foreignField: '_id',
+          as: 'sender'
+        },
+      },
+      { "$unwind": { "path": "$sender", "preserveNullAndEmptyArrays": true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'receiverId',
+          foreignField: '_id',
+          as: 'receiver'
+        },
+      },
+      { "$unwind": { "path": "$receiver", "preserveNullAndEmptyArrays": true } },
+      {
+        $match: {
+          $or: [
+            {
+              $and: [
+                { senderId: new ObjectId(req.user.id.toString()) }, { receiverId: new ObjectId(userId) }
+              ]
+            },
+            {
+              $and: [
+                { senderId: new ObjectId(userId) }, { receiverId: new ObjectId(req.user.id.toString()) }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        $sort: { "createdDate": 1 }
+      },
+      {
+        $project: {
+          _id: 1,
+          message: 1,
+          senderId: 1,
+          receiverId: 1,
+          createdDate: 1,
+          sender: { fullname: 1, id: 1 },
+          receiver: { fullname: 1, id: 1 },
+        }
+      },
+      {
+        $group: {
+          "_id": "$_id",
+          "message": { "$first": "$message" },
+          "senderId": { "$first": "$senderId" },
+          "createdDate": { "$first": "$createdDate" },
+          "receiverId": { "$first": "$receiverId" },
+          "sender": { "$first": "$sender.fullname" },
+          "receiver": { "$first": "$receiver.fullname" },
+        }
+      },
+    ])
+    res.json({ messages, error: false, success: true });
   } catch (error) {
     console.log(error)
     res.json({ error: 'Friends does not exist', error: true, success: false });
